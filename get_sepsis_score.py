@@ -1,11 +1,8 @@
 # -*- coding: UTF-8 -*-
 # !/usr/bin/python
 
-import sys
-import xgboost as xgb
 import numpy as np
 from sklearn.externals import joblib
-import os
 
 x_mean = np.array([
     83.8996, 97.0520, 36.8055, 126.2240, 86.2907,
@@ -37,6 +34,8 @@ grad_temp = []
 
 def get_sepsis_score(feature, model):
     feature = genFeature(feature)
+    feature[:, 0:40] = imputer_missing_mean(feature[:, 0:40])
+    feature[:, 40:] = imputer_missing_median(feature[:, 40:])
     # generate predictions
     label = model.predict(feature)
     prob = model.predict_proba(feature)
@@ -55,12 +54,23 @@ def load_sepsis_model():
     return clf
 
 
+def imputer_missing_mean(testFtr):
+    imr = joblib.load('imputer_mean.pkl')
+    testFtr = imr.transform(testFtr)
+    return testFtr
+
+
+def imputer_missing_median(testFtr):
+    imr = joblib.load('imputer_median.pkl')
+    testFtr = imr.transform(testFtr)
+    return testFtr
+
+
 # 输入所有数据特征
 def genFeature(data):
     global grad_temp
-    exlen = 2
-    # feature = data[:, :-3]
-    feature = data
+    exlen = 16
+    feature = data[:, :-3]
     h, w = feature.shape
 
     for j in range(w):
@@ -203,7 +213,6 @@ def mFactorMax(data):
     if h > 11:
         mF = mFCac(data[h - 12:h, :])
         if len(mFMax) >= 2:
-            print('do here')
             splitV = np.nanmean(np.array(mFMax), axis=0)
             for j in range(len(splitV)):
                 if splitV[j] > mF[j]:
@@ -213,7 +222,7 @@ def mFactorMax(data):
                     max = np.nanmax(np.array(mFMax)[:, j], axis=0)
                     mF[j] = [max, mF[j]][bool(max < mF[j])]
         mFMax.append(mF)
-        print(mFMax)
+        # print(mFMax)
         mF = np.reshape(mF, (1, w))
     return mF
 
@@ -287,158 +296,6 @@ def f_mean(data):
     return np.reshape(m, (1, w))
 
 
-def featureGrad(feature, isTrain=False):
-    h, w = np.array(feature).shape
-    tNan = np.zeros(w)
-    tNan[:] = np.nan
-    grad = np.copy(feature)
-    for i in range(h):
-        if i > 0:
-            grad[i, :] = feature[i, :] - feature[i - 1, :]
-        else:
-            grad[i, :] = tNan
-    if h > 1 and isTrain:
-        grad[0, :] = grad[1, :]
-    return grad
-
-
-def featureGrad_12(feature, isTrain=False):
-    h, w = np.array(feature).shape
-    grad = np.full(np.array(feature).shape, np.nan)
-    if h >= 12:
-        for i in range(h):
-            if i >= 12:
-                grad[i, :] = feature[i, :] - feature[i - 12, :]
-            elif i >= 6:
-                grad[i, :] = feature[i, :] - feature[0, :]
-        # if isTrain:
-        # grad[0:6, :] = np.full((6, w), grad[6, :])
-        # print(grad[0:7, :])
-        return grad
-    return grad
-
-
-def featureGrad_24(feature, isTrain=False):
-    h, w = np.array(feature).shape
-    grad = np.full(np.array(feature).shape, np.nan)
-    if h >= 24:
-        grad = np.copy(feature)
-        for i in range(h):
-            if i >= 24:
-                grad[i, :] = feature[i, :] - feature[i - 24, :]
-            elif i >= 15:
-                grad[i, :] = feature[i, :] - feature[0, :]
-        # if isTrain:
-        # grad[0:15, :] = np.full((15, w), grad[15, :])
-        return grad
-    return grad
-
-
-def mutationFactor(feature, isTrain=False):
-    f = np.array(feature)
-    h, w = f.shape
-    mutation = []
-    tNan = np.zeros(w)
-    tNan[:] = np.nan
-    for i in range(h):
-        if i > 0:
-            mutation.append(mFCac(f[0:i + 1, :]))
-        else:
-            mutation.append(tNan.tolist())
-
-    if isTrain:
-        mutation = np.array(mutation)
-        if h > 1:
-            mutation[0, :] = mutation[1, :]
-    return mutation
-
-
-def muFactor_max(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    mutation = []
-    tNan = np.zeros(w)
-    tNan[:] = np.nan
-    validV = 0
-    for i in range(h):
-        if i < 11:
-            mutation.append(tNan.tolist())
-        else:
-            value = f[i - 11:i + 1, :]
-            mV = mFCac(value)
-            if validV >= 2:
-                splitV = np.nanmean(mutation, axis=0)
-                temp = np.zeros_like(splitV)
-                for j in range(len(splitV)):
-                    if splitV[j] > mV[j]:
-                        min = np.nanmin(np.array(mutation)[:, j], axis=0)
-                        temp[j] = [min, mV[j]][bool(min > mV[j])]
-                    else:
-                        max = np.nanmax(np.array(mutation)[:, j], axis=0)
-                        temp[j] = [max, mV[j]][bool(max < mV[j])]
-                mutation.append(temp)
-            else:
-                mutation.append(mV)
-                validV += 1
-    return mutation
-
-
-def featureSum(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    sum = []
-    thred = np.full((h, w), 10000)
-    for i in range(h):
-        temp = np.min(np.vstack((np.sum(f[0:i + 1, :], axis=0), thred)), axis=0)
-        sum.append(temp)
-    return sum
-
-
-def featureSum_8h(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    sum = []
-    tNan = np.zeros(w)
-    tNan[:] = np.nan
-    for i in range(h):
-        if i < 7:
-            temp = tNan.tolist()
-        else:
-            temp = np.nansum(f[i - 7:i + 1, :], axis=0)
-        sum.append(temp)
-    return sum
-
-
-def featureMax(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    m = []
-    for i in range(h):
-        temp = np.nanmax(f[:i + 1, :], axis=0)
-        m.append(temp)
-    return m
-
-
-def featureMin(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    m = []
-    for i in range(h):
-        temp = np.nanmin(f[:i + 1, :], axis=0)
-        m.append(temp)
-    return m
-
-
-def featureMean(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    m = []
-    for i in range(h):
-        temp = np.nanmean(f[:i + 1, :], axis=0)
-        m.append(temp)
-    return m
-
-
 def featureMedian(feature):
     f = np.array(feature)
     h, w = f.shape
@@ -459,9 +316,9 @@ if __name__ == "__main__":
     print("src", test)
     for t in range(50):
         current_data = test[:t + 1]
-        if t==0:
-            result=genFeature(current_data)
+        if t == 0:
+            result = genFeature(current_data)
         else:
-            result=np.vstack((result,genFeature(current_data)))
+            result = np.vstack((result, genFeature(current_data)))
 
     print("result", result.shape)
