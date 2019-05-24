@@ -27,20 +27,27 @@ x_std = np.array([
     29.8928, 7.0606, 137.3886, 96.8997,
     16.1887, 0.4981, 0.7968, 0.8029, 160.8846, 29.5367])
 
+mFMax = []
+fSum_pre = []
+fmax = []
+fmin = []
+fmean = []
+grad_temp = []
+
 
 def get_sepsis_score(feature, model):
-    feature = genFeature(feature, False)
+    feature = genFeature(feature)
     # generate predictions
     label = model.predict(feature)
     prob = model.predict_proba(feature)
     # print(label, prob)
     pb = 0.1
-    for i in range(len(label)):
-        if (prob[i][1] > pb):
-            label[i] = 1
-        else:
-            label[i] = 0
-    return np.array(prob)[:, -1], label[-1]
+    # print(prob)
+    if (prob[0][1] > pb):
+        label = 1
+    else:
+        label = 0
+    return prob[0][1], label
 
 
 def load_sepsis_model():
@@ -49,51 +56,70 @@ def load_sepsis_model():
 
 
 # 输入所有数据特征
-def genFeature(feature, isTrain=False):
-    exlen = 16
-    feature = np.array(feature)
-    if np.ndim(feature) == 1:
-        tNan = np.zeros(exlen)
-        tNan[:] = np.nan
-        feature = np.hstack((feature, tNan, tNan, tNan, tNan, tNan, feature, tNan, feature, feature, feature))
-        return feature
-    # feature = data[0][:, :-1]
-    h, w = np.array(feature).shape
+def genFeature(data):
+    global grad_temp
+    exlen = 2
+    # feature = data[:, :-3]
+    feature = data
+    h, w = feature.shape
+
     for j in range(w):
         for i in range(h):
             if np.isnan(feature[i, j]):
-                feature[i, j] = searchNearValue(i, feature[:, j], 3, isTrain)
+                feature[i, j] = searchNearValue(i, feature[:, j], 3, True)
 
     for j in range(w):
         for i in range(h):
             if np.isnan(feature[i, j]):
                 feature[i, j] = x_mean[j]
 
-    grad1 = featureGrad(feature[:, :exlen], isTrain)
+    grad1 = Grad1(feature[:, :exlen])
 
-    grad12 = featureGrad_12(feature[:, :exlen], isTrain)
+    grad12 = Grad12(feature[:, :exlen])
 
-    grad24 = featureGrad_24(feature[:, :exlen], isTrain)
+    grad24 = Grad24(feature[:, :exlen])
 
     grad = np.hstack((grad1, grad12, grad24))
-    h, w = grad.shape
+
+    if h == 1:
+        grad_temp = []
+        grad_temp.append(grad)
+    else:
+        grad_temp.append(grad)
+
+    # print(grad)
+    temp = np.array(grad_temp)
+    h, w = temp.shape
     for j in range(w):
         for i in range(h):
-            if np.isnan(grad[i, j]):
-                grad[i, j] = searchNearValue(i, grad[:, j], 3, isTrain)
+            if np.isnan(temp[i, j]):
+                temp[i, j] = searchNearValue(i, temp[:, j], 3, True)
 
-    mutation = mutationFactor(feature[:, :exlen], isTrain)
-    mutationMax = muFactor_max(feature[:, :exlen])
+    grad = temp[-1, :]
+    grad = np.reshape(grad, (1, w))
+    # print("after", grad)
+    mutation = mFactor(feature[:, :exlen])
+    mutationMax = mFactorMax(feature[:, :exlen])
 
-    fSum = featureSum(feature[:, :exlen])
-    fSum8 = featureSum_8h(feature[:, :exlen])
-    fMax = featureMax(feature[:, :exlen])
-    fMin = featureMin(feature[:, :exlen])
-    fMean = featureMean(feature[:, :exlen])
+    fSum = f_sum(feature[:, :exlen])
+    fSum8 = f_sum8h(feature[:, :exlen])
+    fMax = f_max(feature[:, :exlen])
+    fMin = f_min(feature[:, :exlen])
+    fMean = f_mean(feature[:, :exlen])
 
-    feature = np.hstack((feature, grad, mutation, mutationMax, fSum, fSum8,
-                         fMax, fMin, fMean))
-    return feature
+    # print(feature.shape)
+    # print(grad.shape)
+    # print(mutation.shape)
+    # print(mutationMax.shape)
+    # print(fSum.shape)
+    # print(fSum8.shape)
+    # print(fMax.shape)
+    # print(fMin.shape)
+    # print(fMean.shape)
+
+    f = np.hstack((feature[h - 1:h], grad, mutation, mutationMax, fSum, fSum8,
+                   fMax, fMin, fMean))
+    return f
 
 
 def searchNearValue(index, list, range, isTrain=False):
@@ -109,6 +135,156 @@ def searchNearValue(index, list, range, isTrain=False):
                 indexH = indexH + 1
         indexL = indexL - 1
     return list[index]
+
+
+def Grad1(data):
+    h, w = data.shape
+    grad = np.zeros(w)
+    grad[:] = np.nan
+    if h > 1:
+        grad = data[-1, :] - data[-2, :]
+    return grad
+
+
+def Grad12(data):
+    h, w = data.shape
+    grad = np.zeros(w)
+    grad[:] = np.nan
+    if h >= 13:
+        grad = data[-1, :] - data[-12, :]
+    elif h >= 7:
+        grad = data[-1, :] - data[-7, :]
+    return grad
+
+
+def Grad24(data):
+    h, w = data.shape
+    grad = np.zeros(w)
+    grad[:] = np.nan
+    if h >= 25:
+        grad = data[-1, :] - data[-25, :]
+    elif h >= 16:
+        grad = data[-1, :] - data[-16, :]
+    return grad
+
+
+def mFCac(data):
+    h, w = data.shape
+    m_t = np.nanmean(data, axis=0)
+    s_t = np.nanstd(data, axis=0)
+    for i in range(w):
+        if np.isnan(m_t[i]):
+            m_t[i] = x_mean[i]
+        if np.isnan(s_t[i]):
+            s_t[i] = x_std[i]
+        if m_t[i] < 0.001 and m_t[i] > 0:
+            m_t[i] = 0.001
+        elif m_t[i] > -0.001 and m_t[i] < 0:
+            m_t[i] = -0.001
+    return np.divide(s_t, m_t)
+
+
+def mFactor(data):
+    h, w = data.shape
+    mF = np.zeros((1, w))
+    mF[0, :] = np.nan
+    if h > 1:
+        mF[0, :] = mFCac(data)
+    return mF
+
+
+def mFactorMax(data):
+    global mFMax
+    h, w = data.shape
+    mF = np.zeros((1, w))
+    mF[:] = np.nan
+    if h == 1:
+        mFMax = []
+    if h > 11:
+        mF = mFCac(data[h - 12:h, :])
+        if len(mFMax) >= 2:
+            print('do here')
+            splitV = np.nanmean(np.array(mFMax), axis=0)
+            for j in range(len(splitV)):
+                if splitV[j] > mF[j]:
+                    min = np.nanmin(np.array(mFMax)[:, j], axis=0)
+                    mF[j] = [min, mF[j]][bool(min > mF[j])]
+                else:
+                    max = np.nanmax(np.array(mFMax)[:, j], axis=0)
+                    mF[j] = [max, mF[j]][bool(max < mF[j])]
+        mFMax.append(mF)
+        print(mFMax)
+        mF = np.reshape(mF, (1, w))
+    return mF
+
+
+def f_sum(data):
+    global fSum_pre
+    # print(fSum_pre, data.shape)
+    h, w = data.shape
+    if h == 1:
+        fSum_pre = data
+        # print(fSum_pre)
+        return data
+    else:
+        thred = np.full((w), 10000)
+        s = np.vstack((fSum_pre, data[-1, :]))
+        temp = np.nanmin(np.vstack((np.nansum(s, axis=0), thred)), axis=0)
+        fSum_pre = temp
+        return np.reshape(temp, (1, w))
+
+
+def f_sum8h(data):
+    h, w = data.shape
+    s = np.zeros((1, w))
+    s[0, :] = np.nan
+    if h >= 8:
+        s[0, :] = np.nansum(data[h - 8:h, :], axis=0)
+    return s
+
+
+def f_max(data):
+    global fmax
+    h, w = data.shape
+
+    if h == 1:
+        fmax = data
+        return data
+
+    m = np.zeros(w)
+    m[:] = np.nan
+    m = np.nanmax(np.vstack((fmax, data[-1, :])), axis=0)
+    fmax = m
+    return np.reshape(m, (1, w))
+
+
+def f_min(data):
+    global fmin
+    h, w = data.shape
+
+    if h == 1:
+        fmin = data
+        return data
+
+    m = np.zeros(w)
+    m[:] = np.nan
+    m = np.nanmin(np.vstack((fmin, data[-1, :])), axis=0)
+    fmin = m
+    return np.reshape(m, (1, w))
+
+
+def f_mean(data):
+    global fmean
+    h, w = data.shape
+    if h == 1:
+        fmean = data
+        return data
+
+    m = np.zeros(w)
+    m[:] = np.nan
+    m = np.nanmean(np.vstack((fmean, data[-1, :])), axis=0)
+    fmean = m
+    return np.reshape(m, (1, w))
 
 
 def featureGrad(feature, isTrain=False):
@@ -156,22 +332,6 @@ def featureGrad_24(feature, isTrain=False):
         # grad[0:15, :] = np.full((15, w), grad[15, :])
         return grad
     return grad
-
-
-def mFCac(data):
-    h, w = data.shape
-    m_t = np.nanmean(data, axis=0)
-    s_t = np.nanstd(data, axis=0)
-    for i in range(w):
-        if np.isnan(m_t[i]):
-            m_t[i] = x_mean[i]
-        if np.isnan(s_t[i]):
-            s_t[i] = x_std[i]
-        if m_t[i] < 0.001 and m_t[i] > 0:
-            m_t[i] = 0.001
-        elif m_t[i] > -0.001 and m_t[i] < 0:
-            m_t[i] = -0.001
-    return np.divide(s_t, m_t)
 
 
 def mutationFactor(feature, isTrain=False):
@@ -287,3 +447,21 @@ def featureMedian(feature):
         temp = np.nanmedian(f[:i + 1, :], axis=0)
         m.append(temp)
     return m
+
+
+if __name__ == "__main__":
+    # test = GetFeatures.readData('./training/p000050.psv')
+    # feature = GetFeatures.getFeature(test)
+
+    test = np.arange(1, 101, 1)
+    test = np.reshape(test, (50, 2))
+    result = []
+    print("src", test)
+    for t in range(50):
+        current_data = test[:t + 1]
+        if t==0:
+            result=genFeature(current_data)
+        else:
+            result=np.vstack((result,genFeature(current_data)))
+
+    print("result", result.shape)
