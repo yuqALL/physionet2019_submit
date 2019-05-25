@@ -28,14 +28,13 @@ mFMax = []
 fSum_pre = []
 fmax = []
 fmin = []
-fmean = []
 grad_temp = []
 
 
 def get_sepsis_score(feature, model):
     feature = genFeature(feature)
-    feature[:, 0:40] = imputer_missing_mean(feature[:, 0:40])
-    feature[:, 40:] = imputer_missing_median(feature[:, 40:])
+    feature[:, 0:34] = imputer_missing_mean(feature[:, 0:34])
+    feature[:, 34:] = imputer_missing_median(feature[:, 34:])
     # generate predictions
     label = model.predict(feature)
     prob = model.predict_proba(feature)
@@ -50,18 +49,18 @@ def get_sepsis_score(feature, model):
 
 
 def load_sepsis_model():
-    clf = joblib.load("./XGBoost.pkl")
+    clf = joblib.load("E:\code\python\physionet2019_submit\XGBoost.pkl")
     return clf
 
 
 def imputer_missing_mean(testFtr):
-    imr = joblib.load('imputer_mean.pkl')
+    imr = joblib.load('E:\code\python\physionet2019_submit\imputer_mean.pkl')
     testFtr = imr.transform(testFtr)
     return testFtr
 
 
 def imputer_missing_median(testFtr):
-    imr = joblib.load('imputer_median.pkl')
+    imr = joblib.load('E:\code\python\physionet2019_submit\imputer_median.pkl')
     testFtr = imr.transform(testFtr)
     return testFtr
 
@@ -70,7 +69,7 @@ def imputer_missing_median(testFtr):
 def genFeature(data):
     global grad_temp
     exlen = 16
-    feature = data[:, :-3]
+    feature = data[:, :-6]
     h, w = feature.shape
 
     for j in range(w):
@@ -127,7 +126,7 @@ def genFeature(data):
     # print(fMin.shape)
     # print(fMean.shape)
 
-    f = np.hstack((feature[h - 1:h], grad, mutation, mutationMax, fSum, fSum8,
+    f = np.hstack((feature[h - 1:h, :], grad, mutation, mutationMax, fSum, fSum8,
                    fMax, fMin, fMean))
     return f
 
@@ -146,7 +145,6 @@ def searchNearValue(index, list, range, isTrain=False):
         indexL = indexL - 1
     return list[index]
 
-
 def Grad1(data):
     h, w = data.shape
     grad = np.zeros(w)
@@ -161,9 +159,10 @@ def Grad12(data):
     grad = np.zeros(w)
     grad[:] = np.nan
     if h >= 13:
-        grad = data[-1, :] - data[-12, :]
+        grad = data[-1, :] - data[-13, :]
     elif h >= 7:
-        grad = data[-1, :] - data[-7, :]
+        grad = data[-1, :] - data[0, :]
+
     return grad
 
 
@@ -174,7 +173,7 @@ def Grad24(data):
     if h >= 25:
         grad = data[-1, :] - data[-25, :]
     elif h >= 16:
-        grad = data[-1, :] - data[-16, :]
+        grad = data[-1, :] - data[0, :]
     return grad
 
 
@@ -283,16 +282,10 @@ def f_min(data):
 
 
 def f_mean(data):
-    global fmean
     h, w = data.shape
-    if h == 1:
-        fmean = data
-        return data
-
     m = np.zeros(w)
     m[:] = np.nan
-    m = np.nanmean(np.vstack((fmean, data[-1, :])), axis=0)
-    fmean = m
+    m = np.nanmean(data, axis=0)
     return np.reshape(m, (1, w))
 
 
