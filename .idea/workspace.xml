@@ -1,17 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="fb25ffeb-1381-41eb-ae0b-07ce92b97dce" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/XGBoost.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/XGBoost.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/driver2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/get_sepsis_score.py" beforeDir="false" afterPath="$PROJECT_DIR$/get_sepsis_score.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/imputer_mean.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/imputer_mean.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/imputer_median.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/imputer_median.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python-example-2019-master.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" />
-    </list>
+    <list default="true" id="fb25ffeb-1381-41eb-ae0b-07ce92b97dce" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
