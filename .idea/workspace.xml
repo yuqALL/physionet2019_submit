@@ -37,7 +37,7 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/testfiles/driver2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="114">
+            <state relative-caret-position="153">
               <caret line="52" column="28" selection-start-line="52" selection-start-column="28" selection-end-line="52" selection-end-column="28" />
               <folding>
                 <element signature="e#23#50#0" expanded="true" />
@@ -67,7 +67,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="7">
     <option name="x" value="240" />
     <option name="y" value="135" />
     <option name="width" value="1440" />
@@ -305,15 +305,16 @@
       <updated>1558663213072</updated>
       <workItem from="1558663222642" duration="3343000" />
       <workItem from="1558667457166" duration="12044000" />
-      <workItem from="1558696992846" duration="6039000" />
+      <workItem from="1558696992846" duration="6644000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="21426000" />
+    <option name="totallyTimeSpent" value="22031000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-7" y="-7" width="2062" height="1136" extended-state="6" />
+    <frame x="-7" y="-7" width="2062" height="1136" extended-state="7" />
+    <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.25499" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -330,12 +331,12 @@
       <window_info anchor="bottom" id="Database Changes" order="9" />
       <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" />
       <window_info anchor="bottom" id="Terminal" order="11" />
-      <window_info active="true" anchor="bottom" id="Python Console" order="12" visible="true" weight="0.7360558" />
+      <window_info active="true" anchor="bottom" id="Python Console" order="12" visible="true" weight="0.4073705" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="SciView" order="3" sideWeight="0.89056605" visible="true" weight="0.22654691" />
-      <window_info anchor="right" x="0" y="0" width="465" height="936" id="Documentation" order="4" sideWeight="0.109433964" side_tool="true" visible="true" weight="0.22654691" />
+      <window_info anchor="right" id="SciView" order="3" sideWeight="0.9344538" visible="true" weight="0.22654691" />
+      <window_info anchor="right" x="0" y="0" width="465" height="936" id="Documentation" order="4" sideWeight="0.06554622" side_tool="true" visible="true" weight="0.22654691" />
       <window_info anchor="right" id="Database" order="5" />
     </layout>
   </component>
@@ -400,7 +401,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/testfiles/driver2.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="114">
+        <state relative-caret-position="153">
           <caret line="52" column="28" selection-start-line="52" selection-start-column="28" selection-end-line="52" selection-end-column="28" />
           <folding>
             <element signature="e#23#50#0" expanded="true" />
