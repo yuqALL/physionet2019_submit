@@ -49,18 +49,18 @@ def get_sepsis_score(feature, model):
 
 
 def load_sepsis_model():
-    clf = joblib.load("E:\code\python\physionet2019_submit\XGBoost.pkl")
+    clf = joblib.load("XGBoost.pkl")
     return clf
 
 
 def imputer_missing_mean(testFtr):
-    imr = joblib.load('E:\code\python\physionet2019_submit\imputer_mean.pkl')
+    imr = joblib.load('imputer_mean.pkl')
     testFtr = imr.transform(testFtr)
     return testFtr
 
 
 def imputer_missing_median(testFtr):
-    imr = joblib.load('E:\code\python\physionet2019_submit\imputer_median.pkl')
+    imr = joblib.load('imputer_median.pkl')
     testFtr = imr.transform(testFtr)
     return testFtr
 
