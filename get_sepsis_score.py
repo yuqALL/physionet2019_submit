@@ -2,7 +2,8 @@
 # !/usr/bin/python
 
 import numpy as np
-from sklearn.externals import joblib
+import joblib
+import os, sys
 
 x_mean = np.array([
     83.8996, 97.0520, 36.8055, 126.2240, 86.2907,
@@ -29,47 +30,73 @@ fSum_pre = []
 fmax = []
 fmin = []
 grad_temp = []
+hess_temp = []
+All_grad1 = []
+All_grad12 = []
+All_grad24 = []
 
 
 def get_sepsis_score(feature, model):
     feature = genFeature(feature)
-    feature[:, 0:34] = imputer_missing_mean(feature[:, 0:34])
-    feature[:, 34:] = imputer_missing_median(feature[:, 34:])
+    feature[:, 0:34] = imputer_missing_mean_numpy(feature[:, 0:34])
+    feature[:, 34:] = imputer_missing_median_numpy(feature[:, 34:])
     # generate predictions
     label = model.predict(feature)
     prob = model.predict_proba(feature)
     # print(label, prob)
-    pb = 0.1
-    # print(prob)
-    if (prob[0][1] > pb):
-        label = 1
-    else:
-        label = 0
+    # pb = 0.1
+    # # print(prob)
+    # if (prob[0][1] > pb):
+    #     label = 1
+    # else:
+    #     label = 0
     return prob[0][1], label
 
 
 def load_sepsis_model():
-    clf = joblib.load("XGBoost.pkl")
+    clf = joblib.load('EasyEnsembleLightGBM.pkl')
     return clf
 
 
 def imputer_missing_mean(testFtr):
-    imr = joblib.load('imputer_mean.pkl')
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    imr = joblib.load(os.path.join(BASE_DIR, 'imputer_mean.pkl'), 'wb')
     testFtr = imr.transform(testFtr)
     return testFtr
 
 
 def imputer_missing_median(testFtr):
-    imr = joblib.load('imputer_median.pkl')
-    testFtr = imr.transform(testFtr)
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    imr = joblib.load(os.path.join(BASE_DIR, 'imputer_median.pkl'), 'wb')
+    return testFtr
+
+
+def imputer_missing_mean_numpy(testFtr):
+    imr = np.load('imputer_mean_numpy.npy')
+    h, w = testFtr.shape
+    for i in range(h):
+        for j in range(w):
+            if np.isnan(testFtr[i, j]):
+                testFtr[i, j] = imr[j]
+    return testFtr
+
+
+def imputer_missing_median_numpy(testFtr):
+    imr = np.load('imputer_median_numpy.npy')
+    h, w = testFtr.shape
+    for i in range(h):
+        for j in range(w):
+            if np.isnan(testFtr[i, j]):
+                testFtr[i, j] = imr[j]
     return testFtr
 
 
 # 输入所有数据特征
 def genFeature(data):
-    global grad_temp
+    global grad_temp, hess_temp, All_grad1, All_grad12, All_grad24
     exlen = 16
-    feature = data[:, :-6]
+    # feature = data[:, :-1]
+    feature = data
     h, w = feature.shape
 
     for j in range(w):
@@ -82,15 +109,20 @@ def genFeature(data):
             if np.isnan(feature[i, j]):
                 feature[i, j] = x_mean[j]
 
-    grad1 = Grad1(feature[:, :exlen])
+    norm = data_norm(feature)
+    res = residual_value(feature)
+    grad1 = Grad1(res[:, :exlen])
 
-    grad12 = Grad12(feature[:, :exlen])
+    grad12 = Grad12(res[:, :exlen])
 
-    grad24 = Grad24(feature[:, :exlen])
+    grad24 = Grad24(res[:, :exlen])
 
     grad = np.hstack((grad1, grad12, grad24))
 
     if h == 1:
+        All_grad1 = []
+        All_grad12 = []
+        All_grad24 = []
         grad_temp = []
         grad_temp.append(grad)
     else:
@@ -107,27 +139,58 @@ def genFeature(data):
     grad = temp[-1, :]
     grad = np.reshape(grad, (1, w))
     # print("after", grad)
-    mutation = mFactor(feature[:, :exlen])
-    mutationMax = mFactorMax(feature[:, :exlen])
+    All_grad1.append(grad[0, :exlen])
+    All_grad12.append(grad[0, exlen:2 * exlen])
+    All_grad24.append(grad[0, 2 * exlen:3 * exlen])
+    hess1 = Grad1(np.array(All_grad1))
+    hess12 = Grad12(np.array(All_grad12))
+    hess24 = Grad24(np.array(All_grad24))
+    hess = np.hstack((hess1, hess12, hess24))
+    if h == 1:
+        hess_temp = []
+        hess_temp.append(hess)
+    else:
+        hess_temp.append(hess)
 
-    fSum = f_sum(feature[:, :exlen])
-    fSum8 = f_sum8h(feature[:, :exlen])
-    fMax = f_max(feature[:, :exlen])
-    fMin = f_min(feature[:, :exlen])
-    fMean = f_mean(feature[:, :exlen])
+    # print(grad)
+    temp = np.array(hess_temp)
+    h, w = temp.shape
+    for j in range(w):
+        for i in range(h):
+            if np.isnan(temp[i, j]):
+                temp[i, j] = searchNearValue(i, temp[:, j], 3, True)
 
-    # print(feature.shape)
+    hess = temp[-1, :]
+    hess = np.reshape(hess, (1, w))
+    # print("after", grad)
+
+    mutation = mFactor(res[:, :exlen])
+    mutationMax = mFactorMax(res[:, :exlen])
+
+    fSum = f_sum(res[:, :exlen])
+    fSum8 = f_sum8h(res[:, :exlen])
+    fMax = f_max(res[:, :exlen])
+    fMin = f_min(res[:, :exlen])
+    fMean = f_mean(res[:, :exlen])
+    fMedian = f_median(res[:, :exlen])
+
+    fCov = cov_filter(feature[:, :exlen])
+    kernel = np.array([[1, 2, 3, 2, 1], [2, 4, 6, 4, 2], [4, 8, 12, 8, 4], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
+    fCov2 = filter2d(feature[:, :exlen], kernel)
+
+    # print(feature[h - 1:h, :].shape)
     # print(grad.shape)
-    # print(mutation.shape)
-    # print(mutationMax.shape)
-    # print(fSum.shape)
-    # print(fSum8.shape)
-    # print(fMax.shape)
-    # print(fMin.shape)
+    # print(hess.shape)
+    # print(fMedian.shape)
+    # print(fCov.shape)
+    # print(fCov2.shape)
+    # print(res[h - 1:h, :].shape)
+    # print(norm.shape)
     # print(fMean.shape)
-
-    f = np.hstack((feature[h - 1:h, :], grad, mutation, mutationMax, fSum, fSum8,
-                   fMax, fMin, fMean))
+    f = np.hstack((feature[h - 1:h, :], norm, res[h - 1:h, :], grad, hess, mutation, mutationMax, fSum, fSum8,
+                   fMax, fMin, fMean, fMedian, fCov, fCov2))
+    # f = np.hstack((feature[h - 1:h, :], grad, mutation, mutationMax, fSum, fSum8,
+    #                fMax, fMin, fMean))
     return f
 
 
@@ -144,6 +207,12 @@ def searchNearValue(index, list, range, isTrain=False):
                 indexH = indexH + 1
         indexL = indexL - 1
     return list[index]
+
+
+def data_norm(data):
+    norm = (data[-1] - x_mean) / x_std
+    return np.reshape(norm, (1, len(norm)))
+
 
 def Grad1(data):
     h, w = data.shape
@@ -212,7 +281,8 @@ def mFactorMax(data):
     if h > 11:
         mF = mFCac(data[h - 12:h, :])
         if len(mFMax) >= 2:
-            splitV = np.nanmean(np.array(mFMax), axis=0)
+            # splitV = np.nanmean(np.array(mFMax), axis=0)
+            splitV = np.nanmedian(np.array(mFMax), axis=0)
             for j in range(len(splitV)):
                 if splitV[j] > mF[j]:
                     min = np.nanmin(np.array(mFMax)[:, j], axis=0)
@@ -289,29 +359,98 @@ def f_mean(data):
     return np.reshape(m, (1, w))
 
 
-def featureMedian(feature):
-    f = np.array(feature)
-    h, w = f.shape
-    m = []
+def f_median(data):
+    h, w = data.shape
+    m = np.zeros(w)
+    m[:] = np.nan
+    m = np.nanmedian(data, axis=0)
+    return np.reshape(m, (1, w))
+
+
+def residual_value(feature):
+    h, w = feature.shape
+    data = np.full((h, w), x_mean[0:w])
+    return feature - data
+
+
+def cov_filter(feature):
+    h, w = feature.shape
+    if h < 3:
+        return np.reshape(feature[-1, :], (1, w))
+    f = np.nan_to_num(feature, True)
+    result = np.full((1, w), np.nan)
+
+    result = (f[-1, :] * 3 + f[-2, :] * 2 + f[-3, :]) / 6
+    return np.reshape(result, (1, w))
+
+
+def filter2d(feature, kernel):
+    h, w = feature.shape
+    kh, kw = kernel.shape
+    if h < 5 or w < 5:
+        return np.reshape(feature[-1, :], (1, w))
+    r = np.sum(kernel)
+    f = np.nan_to_num(feature, True)
+    tmp = np.zeros((h + 2, w + 4), dtype='float64')
+    tmp[0:-2, 2:-2] = f
+    result = np.full((1, w), np.nan)
+    for j in range(w):
+        # print(tmp[-5:, j:j + kw])
+        t = tmp[-5:, j:j + kw] * kernel
+        result[0, j] = np.sum(t) / r
+    return result
+
+
+def compare(value, left, right):
+    if np.isnan(value):
+        return 0
+    if value > right:
+        return 1
+    elif value > left:
+        return 0
+    else:
+        return -1
+
+
+def gen_obs(list):
+    result = []
+    result.append(compare(list[0], 60, 150))
+    result.append(compare(list[1], 91, 99))
+    result.append(compare(list[2], 36.5, 37.3))
+    result.append(compare(list[3], 90, 139))
+    result.append(compare(list[4], 65, 110))
+    result.append(compare(list[5], 50, 92))
+    result.append(compare(list[6], 12, 60))
+    result.append(compare(list[7], 35, 45))
+    result.append(compare(list[8], -10, 6))
+    result.append(compare(list[9], 23, 30))
+    result.append(compare(list[10], 0.6, 0.98))
+    result.append(compare(list[11], 6, 8))
+    return result
+
+
+def get_obsfeature(feature):
+    h, w = feature.shape
+    result = []
     for i in range(h):
-        temp = np.nanmedian(f[:i + 1, :], axis=0)
-        m.append(temp)
-    return m
+        result.append(gen_obs(feature[i, :12]))
+    return np.reshape(result, (h, 12))
 
 
 if __name__ == "__main__":
     # test = GetFeatures.readData('./training/p000050.psv')
     # feature = GetFeatures.getFeature(test)
+    load_sepsis_model()
 
-    test = np.arange(1, 101, 1)
-    test = np.reshape(test, (50, 2))
-    result = []
-    print("src", test)
-    for t in range(50):
-        current_data = test[:t + 1]
-        if t == 0:
-            result = genFeature(current_data)
-        else:
-            result = np.vstack((result, genFeature(current_data)))
-
-    print("result", result.shape)
+    # test = np.arange(1, 101, 1)
+    # test = np.reshape(test, (50, 2))
+    # result = []
+    # print("src", test)
+    # for t in range(50):
+    #     current_data = test[:t + 1]
+    #     if t == 0:
+    #         result = genFeature(current_data)
+    #     else:
+    #         result = np.vstack((result, genFeature(current_data)))
+    #
+    # print("result", result.shape)
