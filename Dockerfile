@@ -6,4 +6,7 @@ MAINTAINER yuq329@outlook.com
 RUN mkdir /physionet2019
 COPY ./ /physionet2019
 WORKDIR /physionet2019
-RUN pip install -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils
+RUN apt-get -y install curl
+RUN apt-get install libgomp1
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt

@@ -252,10 +252,11 @@ def mFCac(data):
     s_t = np.nanstd(data, axis=0)
     for i in range(w):
         if np.isnan(m_t[i]):
-            m_t[i] = x_mean[i]
+            # m_t[i] = x_mean[i]
+            m_t[i] = 0.001
         if np.isnan(s_t[i]):
             s_t[i] = x_std[i]
-        if m_t[i] < 0.001 and m_t[i] > 0:
+        if m_t[i] < 0.001 and m_t[i] >= 0:
             m_t[i] = 0.001
         elif m_t[i] > -0.001 and m_t[i] < 0:
             m_t[i] = -0.001
