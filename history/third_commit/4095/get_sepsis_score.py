@@ -32,6 +32,7 @@ All_grad1 = []
 All_grad12 = []
 All_grad24 = []
 
+
 def lgb_features_filter(alpha):
     importance_index = np.load('importance_lightgbm.npy')
     feature_length = len(importance_index[0])
@@ -40,6 +41,7 @@ def lgb_features_filter(alpha):
     f_index = np.unique(importance_index)
     f_index = np.sort(f_index)
     return f_index
+
 
 def get_sepsis_score(feature, model):
     feature = genFeature(feature)
@@ -173,11 +175,69 @@ def genFeature(data):
     f[:, 0:34] = imputer_missing_mean_numpy(f[:, 0:34])
     f[:, 34:] = imputer_missing_median_numpy(f[:, 34:], 34)
 
-    f_index = utils.kind_feature_filter([11, 25])
+    f_index = kind_feature_filter([11, 25])
     f = f[:, f_index]
     f_index = lgb_features_filter(0.5)
     f = np.array(f[:, f_index]).astype('float32')
     return f
+
+
+def kind_feature_filter(pos, dele=True):
+    origin_f = 0
+    res_f = 40
+    grad1_f = 74
+    grad12_f = 108
+    grad24_f = 142
+    hess1_f = 176
+    hess12_f = 210
+    hess24_f = 244
+    mutation_f = 278
+    mutation_max_f = 312
+
+    mutation12_f = 346
+    mutation12h_f = 380
+    sum_f = 414
+    sum8_f = 448
+    max_f = 482
+    min_f = 516
+    mean_f = 550
+    cov1_f = 584
+    cov2_f = 618
+    cov_la_f = 652
+
+    r_stat_f = 686
+    g_stat_f = 690
+    h_stat_f = 694
+    m_stat_f = 698
+    gnb_f = 702
+
+    f_length = 704
+    f_index = []
+
+    f_temp = []
+
+    for i in range(len(pos)):
+        id = pos[i]
+        if id == 1:
+            for k in range(40):
+                f_temp.append(k)
+        elif id < 21:
+            for k in range(34):
+                f_temp.append((id - 1) * 34 + 6 + k)
+        elif id < 25:
+            for k in range(4):
+                f_temp.append(686 + 4 * (id - 21) + k)
+        else:
+            f_temp.append(702)
+            f_temp.append(703)
+    if dele:
+        for j in range(f_length):
+            if not np.isin(j, np.array(f_temp)):
+                f_index.append(j)
+    else:
+        f_index = f_temp
+    f_index = np.sort(f_index)
+    return np.array(f_index)
 
 
 def searchNearValue(index, list, range):
@@ -527,4 +587,3 @@ def get_obsfeature(feature):
     for i in range(h):
         result.append(gen_obs(feature[i, :12]))
     return np.reshape(result, (h, 12))
-
