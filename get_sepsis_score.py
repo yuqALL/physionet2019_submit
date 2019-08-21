@@ -3,6 +3,7 @@
 
 import numpy as np
 import joblib
+import os, sys
 
 x_mean = np.array([
     83.8996, 97.0520, 36.8055, 126.2240, 86.2907,
@@ -28,28 +29,27 @@ mFMax = []
 fSum_pre = []
 fmax = []
 fmin = []
+grad_temp = []
+hess_temp = []
 All_grad1 = []
 All_grad12 = []
 All_grad24 = []
-
-
-def lgb_features_filter(alpha):
-    importance_index = np.load('importance_lightgbm.npy')
-    feature_length = len(importance_index[0])
-    pick_feature_len = int(alpha * feature_length)
-    importance_index = np.array(importance_index)[:, feature_length - pick_feature_len:]
-    f_index = np.unique(importance_index)
-    f_index = np.sort(f_index)
-    return f_index
+All_hess1 = []
 
 
 def get_sepsis_score(feature, model):
-    feature = genFeature(feature)
-    # f_index = utils.lgb_features_filter(0.5)
-    # feature = feature[:, f_index]
+    feature = genFeature(feature, True)
+    # print(feature.dtype)
     # generate predictions
     label = model.predict(feature)
     prob = model.predict_proba(feature)
+    # print(label, prob)
+    # pb = 0.1
+    # # print(prob)
+    # if (prob[0][1] > pb):
+    #     label = 1
+    # else:
+    #     label = 0
     return prob[0][1], label
 
 
@@ -57,30 +57,9 @@ def load_sepsis_model():
     clf = joblib.load('EasyEnsembleLightGBM.pkl')
     return clf
 
-
-def imputer_missing_mean_numpy(testFtr, start=0):
-    imr = np.load('imputer_mean_numpy.npy')
-    h, w = testFtr.shape
-    for i in range(h):
-        for j in range(w):
-            if np.isnan(testFtr[i, j]):
-                testFtr[i, j] = imr[j + start]
-    return testFtr
-
-
-def imputer_missing_median_numpy(testFtr, start=0):
-    imr = np.load('imputer_median_numpy.npy')
-    h, w = testFtr.shape
-    for i in range(h):
-        for j in range(w):
-            if np.isnan(testFtr[i, j]):
-                testFtr[i, j] = imr[j + start]
-    return testFtr
-
-
 # 输入所有数据特征
-def genFeature(data):
-    global All_grad1, All_grad12, All_grad24
+def genFeature(data, isBayes=True):
+    global All_grad1, All_grad12, All_grad24, All_hess1
     exlen = 34
     # feature = data[:, :-1]
     feature = data
@@ -89,10 +68,8 @@ def genFeature(data):
         All_grad1 = []
         All_grad12 = []
         All_grad24 = []
-        mFMax = []
-        fSum_pre = []
-        fmax = []
-        fmin = []
+        All_hess1 = []
+
     for j in range(w):
         for i in range(h):
             if np.isnan(feature[i, j]):
@@ -113,9 +90,9 @@ def genFeature(data):
     rStat = np.hstack((rMax, rMin, rMean, rSum))
     rStat = np.reshape(rStat, (1, len(rStat)))
 
-    grad1 = Grad1(res[:, :exlen])
-    grad12 = Grad12(res[:, :exlen])
-    grad24 = Grad24(res[:, :exlen])
+    grad1 = Grad1(res)
+    grad12 = Grad12(res)
+    grad24 = Grad24(res)
     grad = np.hstack((grad1, grad12, grad24))
     grad = np.reshape(grad, (1, len(grad)))
 
@@ -134,6 +111,7 @@ def genFeature(data):
     hess24 = Grad24(np.array(All_grad24))
     hess = np.hstack((hess1, hess12, hess24))
     hess = np.reshape(hess, (1, len(hess)))
+    All_hess1.append(hess1)
 
     hMax = np.nanmax(hess, axis=1)
     hMin = np.nanmin(hess, axis=1)
@@ -144,9 +122,9 @@ def genFeature(data):
 
     mutation = mFactor(res)
     mutationMax = mFactorMax(res)
-    mutation12 = mFactor12(res)
+    # mutation12 = mFactor12(res)
     mutation12h = mFactor12h(res)
-    mu = np.hstack((mutation, mutationMax, mutation12, mutation12h))
+    mu = np.hstack((mutation, mutationMax, mutation12h))
 
     mMax = np.nanmax(mu, axis=1)
     mMin = np.nanmin(mu, axis=1)
@@ -154,13 +132,15 @@ def genFeature(data):
     mSum = np.nansum(mu, axis=1)
     mStat = np.hstack((mMax, mMin, mMean, mSum))
     mStat = np.reshape(mStat, (1, len(mStat)))
+    # print(mStat.shape)
 
-    fSum = f_sum(res[:, :exlen])
-    fSum8 = f_sum8h(res[:, :exlen])
-    fMax = f_max(res[:, :exlen])
-    fMin = f_min(res[:, :exlen])
-    fMean = f_mean(res[:, :exlen])
-    stat = np.hstack((fSum, fSum8, fMax, fMin, fMean))
+    fSum = f_sum(res)
+    fSum8 = f_sum8h(res)
+    fMax = f_max(res)
+    fMin = f_min(res)
+    fMean = f_mean(res)
+    fVar = f_var(res)
+    stat = np.hstack((fSum, fSum8, fMax, fMin, fMean, fVar))
 
     # fCov = cov_1d(feature[:, :exlen], [1, 2, 1])
     fCov = covFilter(feature[:, :exlen])
@@ -171,73 +151,39 @@ def genFeature(data):
     fCov_laplace = cov_2d(norm, laplace_kernel)
     cov = np.hstack((fCov, fCov2, fCov_laplace))
 
-    f = np.hstack((feature[h - 1:h, :], res[h - 1:h, :], grad, hess, mu, stat, cov, rStat, gStat, hStat, mStat))
-    f[:, 0:34] = imputer_missing_mean_numpy(f[:, 0:34])
-    f[:, 34:] = imputer_missing_median_numpy(f[:, 34:], 34)
+    fEnergy = abs_energy(res)
+    gAbsSC, hAbsSC = absolute_sum(np.array(All_grad1), np.array(All_hess1))
+    rAboveZero = count_above_zero(res)
+    rBelowZero = count_below_zero(res)
+    freqMax = fre_max(res)
+    newf = np.hstack((fEnergy, gAbsSC, hAbsSC, rAboveZero, rBelowZero, freqMax))
+    # feature = cov
 
-    f_index = kind_feature_filter([11, 25])
-    f = f[:, f_index]
-    f_index = lgb_features_filter(0.5)
-    f = np.array(f[:, f_index]).astype('float32')
+    # print(grad.shape)
+    # print(hess.shape)
+    # print(mu.shape)
+    # print(stat.shape)
+    # print(cov.shape)
+    # print(rStat.shape)
+    # f = cov
+    f = np.hstack((feature[h - 1:h, :], res[h - 1:h, :], grad, hess, mu, stat, cov, rStat, gStat, hStat, mStat, newf))
+    f = ImputerMissingValue(f, 40, 'median')
+    f = np.array(f).astype('float32')
     return f
 
 
-def kind_feature_filter(pos, dele=True):
-    origin_f = 0
-    res_f = 40
-    grad1_f = 74
-    grad12_f = 108
-    grad24_f = 142
-    hess1_f = 176
-    hess12_f = 210
-    hess24_f = 244
-    mutation_f = 278
-    mutation_max_f = 312
+def ImputerMissingValue(feature, start=0, way='median'):
+    if way == 'median':
+        imr = np.load("feature_median_numpy.npy")
+    elif way == 'mean':
+        imr = np.load("feature_mean_numpy.npy")
 
-    mutation12_f = 346
-    mutation12h_f = 380
-    sum_f = 414
-    sum8_f = 448
-    max_f = 482
-    min_f = 516
-    mean_f = 550
-    cov1_f = 584
-    cov2_f = 618
-    cov_la_f = 652
-
-    r_stat_f = 686
-    g_stat_f = 690
-    h_stat_f = 694
-    m_stat_f = 698
-    gnb_f = 702
-
-    f_length = 704
-    f_index = []
-
-    f_temp = []
-
-    for i in range(len(pos)):
-        id = pos[i]
-        if id == 1:
-            for k in range(40):
-                f_temp.append(k)
-        elif id < 21:
-            for k in range(34):
-                f_temp.append((id - 1) * 34 + 6 + k)
-        elif id < 25:
-            for k in range(4):
-                f_temp.append(686 + 4 * (id - 21) + k)
-        else:
-            f_temp.append(702)
-            f_temp.append(703)
-    if dele:
-        for j in range(f_length):
-            if not np.isin(j, np.array(f_temp)):
-                f_index.append(j)
-    else:
-        f_index = f_temp
-    f_index = np.sort(f_index)
-    return np.array(f_index)
+    h, w = feature.shape
+    for i in range(h):
+        for j in range(w - start):
+            if np.isnan(feature[i, j + start]):
+                feature[i, j + start] = imr[j + start]
+    return feature
 
 
 def searchNearValue(index, list, range):
@@ -405,11 +351,12 @@ m_max = 0
 def mFactor12(data):
     h, w = data.shape
     global index_i, m_max
-    mF = np.zeros((1, w))
-    mF[0, :] = np.nan
     if h == 1:
         index_i = 0
         m_max = 0
+    mF = np.zeros((1, w))
+    mF[0, :] = np.nan
+
     if h < 12:
         return mF
     elif h < 37:
@@ -460,6 +407,17 @@ def f_sum(data):
         return np.reshape(temp, (1, w))
 
 
+def featureSum(feature):
+    f = np.array(feature)
+    h, w = f.shape
+    sum = []
+    thred = np.full((h, w), 1000000)
+    for i in range(h):
+        temp = np.min(np.vstack((np.sum(f[0:i + 1, :], axis=0), thred)), axis=0)
+        sum.append(temp)
+    return sum
+
+
 def f_sum8h(data):
     h, w = data.shape
     s = np.zeros((1, w))
@@ -504,6 +462,14 @@ def f_mean(data):
     m = np.zeros(w)
     m[:] = np.nan
     m = np.nanmean(data, axis=0)
+    return np.reshape(m, (1, w))
+
+
+def f_var(data):
+    h, w = data.shape
+    m = np.zeros(w)
+    m[:] = np.nan
+    m = np.nanvar(data, axis=0)
     return np.reshape(m, (1, w))
 
 
@@ -587,3 +553,89 @@ def get_obsfeature(feature):
     for i in range(h):
         result.append(gen_obs(feature[i, :12]))
     return np.reshape(result, (h, 12))
+
+
+def fre_max(feature):
+    f = np.copy(feature)
+    h, w = f.shape
+    m = np.zeros((1, w))
+    if h > 1:
+        sp = np.fft.fft(f, axis=0)
+        max_f = np.zeros(w)
+        for k in range(h):
+            max_f = np.max(np.vstack((np.sqrt(sp[k].real ** 2 + sp[k].imag ** 2), max_f)), axis=0)
+        m = np.reshape(max_f, (1, w))
+    return np.array(m)
+
+
+energy_pre = []
+
+
+def abs_energy(feature):
+    global energy_pre
+    f = np.copy(feature)
+    h, w = f.shape
+    if h == 1:
+        energy_pre = np.zeros(w)
+    energy_pre += np.power(feature[-1], 2)
+    m = np.reshape(np.copy(energy_pre), (1, w))
+    # print(m)
+    return m
+
+
+abs_grad = []
+abs_hess = []
+
+
+def absolute_sum(grad, hess):
+    global abs_grad, abs_hess
+    ##NaN处理
+    h, w = np.array(grad).shape
+    gd = np.copy(grad)
+    hs = np.copy(hess)
+    for j in range(w):
+        if np.isnan(gd[-1, j]):
+            gd[-1, j] = 0
+        if np.isnan(hs[-1, j]):
+            hs[-1, j] = 0
+    if h == 1:
+        abs_grad = np.zeros(w)
+        abs_hess = np.zeros(w)
+    abs_grad += np.abs(gd[-1])
+    abs_hess += np.abs(hs[-1])
+    g1 = np.reshape(np.copy(abs_grad), (1, w))
+    h1 = np.reshape(np.copy(abs_hess), (1, w))
+    return g1, h1
+
+
+count_above = []
+
+
+def count_above_zero(feature):
+    global count_above
+    h, w = np.array(feature).shape
+    if h == 1:
+        count_above = np.zeros(w)
+    count_above += feature[-1] > 0
+    m = np.reshape(np.copy(count_above), (1, w))
+    return m
+
+
+count_below = []
+
+
+def count_below_zero(feature):
+    global count_below
+    h, w = np.array(feature).shape
+    if h == 1:
+        count_below = np.zeros(w)
+    count_below += feature[-1] < 0
+    m = np.reshape(np.copy(count_below), (1, w))
+    return m
+
+
+if __name__ == "__main__":
+    # feature = GetFeatures.getFeature(test)
+    load_sepsis_model()
+
+
