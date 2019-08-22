@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="47a8d87b-9dc0-4188-8004-248d72ae0b90" name="Default Changelist" comment="" />
+    <list default="true" id="47a8d87b-9dc0-4188-8004-248d72ae0b90" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/get_sepsis_score.py" beforeDir="false" afterPath="$PROJECT_DIR$/get_sepsis_score.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,7 +32,7 @@
         <entry file="file://$PROJECT_DIR$/get_sepsis_score.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="262">
-              <caret line="637" column="3" selection-start-line="637" selection-start-column="3" selection-end-line="637" selection-end-column="3" />
+              <caret line="637" selection-start-line="637" selection-end-line="637" />
               <folding>
                 <element signature="e#44#62#0" expanded="true" />
               </folding>
@@ -103,6 +105,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
@@ -130,12 +133,12 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1566383862921</updated>
-      <workItem from="1566383870666" duration="754000" />
+      <workItem from="1566383870666" duration="1354000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="754000" />
+    <option name="totallyTimeSpent" value="1354000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-7" y="-7" width="2062" height="1136" extended-state="6" />
@@ -193,7 +196,7 @@
     <entry file="file://$PROJECT_DIR$/get_sepsis_score.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="262">
-          <caret line="637" column="3" selection-start-line="637" selection-start-column="3" selection-end-line="637" selection-end-column="3" />
+          <caret line="637" selection-start-line="637" selection-end-line="637" />
           <folding>
             <element signature="e#44#62#0" expanded="true" />
           </folding>
