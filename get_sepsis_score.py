@@ -183,6 +183,8 @@ def ImputerMissingValue(feature, start=0, way='median'):
         for j in range(w - start):
             if np.isnan(feature[i, j + start]):
                 feature[i, j + start] = imr[j + start]
+            if np.isinf(feature[i, j + start]):
+                feature[i, j + start] = imr[j + start]
     return feature
 
 
