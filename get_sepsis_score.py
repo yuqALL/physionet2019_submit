@@ -188,10 +188,9 @@ def ImputerMissingValue(feature, start=0, way='median'):
     return feature
 
 
-def searchNearValue(index, list, range):
+def searchNearValue(index, list):
     indexL = index
-    indexH = index
-    while indexL >= max(index - range, 0) and indexH < min(index + range, len(list)):
+    while indexL >= 0:
         if np.isnan(list[indexL]) == False:
             return list[indexL]
         indexL = indexL - 1
